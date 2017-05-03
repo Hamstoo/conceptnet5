@@ -363,6 +363,8 @@ def get_weighted_vector(frame, weighted_terms):
     to the weighted average of those term vectors.
 
     A simplified version of VectorSpaceWrapper.get_vector().
+
+    The only place this function is used is by get_category_axis() below.
     """
     total = frame.iloc[0] * 0.
     for term, weight in weighted_terms:
@@ -376,6 +378,11 @@ def get_category_axis(frame, category_examples):
     """
     Get a vector representing the average of several example terms, where
     the terms are specified as plain English text.
+
+    The intent of this function is to get an average vector for each of the
+    left (e.g. female) and each of the right (e.g. male) terms in one of the
+    bias lists above, and then to neutralize ("project the bias axis to 0")
+    with respect to the differences between such vectors (i.e. "debias").
     """
     return get_weighted_vector(
         frame,

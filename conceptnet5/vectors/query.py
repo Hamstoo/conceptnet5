@@ -50,6 +50,18 @@ class VectorSpaceWrapper(object):
     look in default locations for them. They can be specified to replace them
     with toy versions for testing, or to evaluate how other embeddings perform
     while still using ConceptNet for looking up words outside their vocabulary.
+
+    Args:
+        vector_filename (str): E.g. `convert_fasttext`ed 'numberbatch-17.04.txt.gz'
+            which is downloadable from https://github.com/commonsense/conceptnet-numberbatch.
+        frame (pandas.DataFrame): Alternative to `vector_filename`.  If specified
+            data is loaded from this DataFrame rather than `vector_filename`.
+        use_db (bool, default=True): If set to True, this will allow `get_vector` to
+            generate vectors for out-of-vocabulary words based on their nearest
+            neighbors in the ConceptNet knowledge graph (as well as include such
+            neighbors, albeit with low weights, for in-vocab words also).  If set to
+            False, the knowledge graph is ignored entirely and only in-vocab words
+            can be looked up.
     """
 
     def __init__(self, vector_filename=None, frame=None, use_db=True):

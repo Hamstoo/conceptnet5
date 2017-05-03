@@ -1,6 +1,6 @@
 import click
 from .formats import (
-    convert_glove, convert_word2vec, convert_fasttext, convert_polyglot,
+    convert_glove, convert_word2vec, convert_fasttext, convert_polyglot, convert_fasttext_2_oocframe,
     load_hdf, save_hdf, export_text
 )
 from .retrofit import sharded_retrofit, join_shards
@@ -24,10 +24,22 @@ def cli():
 
 @cli.command(name='filter_word_vectors')
 @click.argument('dense_hdf_filename', type=click.Path(readable=True, dir_okay=False))
-@click.argument('vocab_filename', type=click.Path(readable=True, dir_okay=False))
-def filter_word_vectors(dense_hdf_filename, vocab_filename):
-    vsw = VectorSpaceWrapper(vector_filename=dense_hdf_filename)
-    for line in open(vocab_filename):
+@click.option('--vocab_filename', type=click.Path(readable=True, dir_okay=False))
+@click.option('--vocab_str', '-v', help='Comma-delimited string alternative to --vocab_filename')
+@click.option('--use_db', '-db', default=False, help='Use the ConceptNet knowledge graph database for OOV')
+def filter_word_vectors(dense_hdf_filename, vocab_filename='', vocab_str='', use_db=False):
+    """Lookup the word vectors for the set of words in the given vocabulary.
+    """
+    vsw = VectorSpaceWrapper(vector_filename=dense_hdf_filename, use_db=use_db)
+
+    if vocab_filename:
+        iterable = open(vocab_filename)
+    elif vocab_str:
+        iterable = vocab_str.split(',')
+    else:
+        raise ValueError('Either --vocab_filename or --vocab_str option must be provided')
+
+    for line in iterable:
         word = line.strip()
         term = '/c/en/' + word
         vec = vsw.get_vector(term)
@@ -44,6 +56,11 @@ def filter_word_vectors(dense_hdf_filename, vocab_filename):
 @click.option('--nshards', '-s', default=6)
 def run_retrofit(dense_hdf_filename, conceptnet_filename, output_filename,
                  iterations=5, nshards=6, verbose=1):
+    """ "Retrofitting is a process of combining information from a machine-learned
+    space of term vectors with further structured information (e.g. graph edge
+    relationships) about those terms."  This implementation "extends the process
+    to learn vectors for terms that were outside the original space."
+    """
     sharded_retrofit(
         dense_hdf_filename, conceptnet_filename, output_filename,
         iterations=iterations, nshards=nshards, verbose=verbose
@@ -71,7 +88,16 @@ def run_convert_glove(glove_filename, output_filename, nrows=500000):
 @click.option('--nrows', '-n', default=500000)
 @click.option('--language', '-l', default='en')
 def run_convert_fasttext(fasttext_filename, output_filename, nrows=500000, language='en'):
-    convert_fasttext(fasttext_filename, output_filename, nrows=nrows, language=language)
+    convert_fasttext(fasttext_filename, output_filename, nrows, language)
+
+
+@cli.command(name='convert_fasttext_2_oocframe')
+@click.argument('fasttext_filename', type=click.Path(readable=True, dir_okay=False))
+@click.argument('output_path', type=click.Path(writable=True, dir_okay=True))
+@click.option('--nrows', '-n', default=500000)
+@click.option('--language', '-l', default=None)
+def run_convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows=500000, language=None):
+    convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=language)
 
 
 @cli.command(name='convert_word2vec')

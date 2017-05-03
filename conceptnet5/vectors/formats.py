@@ -4,6 +4,7 @@ import gzip
 import struct
 import pickle
 from .transforms import l1_normalize_columns, l2_normalize_rows, standardize_row_labels
+from .oocframe import OOCFrame
 
 
 def load_hdf(filename):
@@ -90,9 +91,44 @@ def convert_fasttext(fasttext_filename, output_filename, nrows, language):
     ft_raw = load_fasttext(fasttext_filename, nrows)
     ft_std = standardize_row_labels(ft_raw, forms=False, language=language)
     del ft_raw
+    # TODO: it doesn't seem to make sense to l1_normalize_columns across different
+    # TODO: languages which presumably all get fit separately--the dimensions won't
+    # TODO: have the same meanings
     ft_normal = l2_normalize_rows(l1_normalize_columns(ft_std))
     del ft_std
     save_hdf(ft_normal, output_filename)
+
+
+def convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=None):
+    """
+    Convert FastText data from a gzipped text file to an HDF5 dataframe.
+    """
+    if language is None or len(language) != 2:
+        raise ValueError('Unsupported language: {}'.format(language))
+    prefix = '/c/{}/'.format(language)
+
+    oocframe = OOCFrame(output_path)
+    with gzip.open(fasttext_filename, 'rt') as infile:
+        nrows_str, ncols_str = infile.readline().rstrip().split()
+        nrows = min(int(nrows_str), nrows)
+        _ = int(ncols_str)
+        i = 0  # ensure that nrows is applied to the specified language
+        for line in infile:
+            if nrows > 0 and i >= nrows:
+                break
+            items = line.rstrip().split(' ')
+            label = items[0]
+            if label.startswith(prefix):
+                values = [float(x) for x in items[1:]]
+                oocframe.insert(label, values, weight=1.0 / (i + 1))
+                i += 1
+
+    oocframe.combine_weights()
+
+    # TODO: implement support for the real DataFrame interface
+    # TODO: i.e. oocframe = l2_normalize_rows(l1_normalize_columns(oocframe))
+    oocframe.l1_normalize_columns()
+    oocframe.l2_normalize_rows()
 
 
 def convert_word2vec(word2vec_filename, output_filename, nrows, language='en'):
@@ -142,6 +178,9 @@ def load_glove(filename, max_rows=1000000):
 def load_fasttext(filename, max_rows=1000000):
     """
     Load a DataFrame from the fastText text format.
+
+    Load the numberbatch-17.04.txt.gz file--the one that's downloadable from
+    https://github.com/commonsense/conceptnet-numberbatch.
     """
     arr = None
     labels = []

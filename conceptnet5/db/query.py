@@ -94,6 +94,9 @@ def make_list_query(criteria):
 
 
 class AssertionFinder(object):
+    """An "assertion" is an edge in the ConceptNet graph which represents a relationship
+    between two terms.
+    """
     def __init__(self, dbname=None):
         self.connection = None
         self.dbname = dbname
