@@ -2,7 +2,7 @@ import os
 import re
 import numpy as np
 import pandas as pd
-from glob import glob
+from glob import iglob
 from collections import defaultdict
 from conceptnet5.vectors import standardized_uri
 
@@ -10,7 +10,8 @@ from conceptnet5.vectors import standardized_uri
 class OOCFrame(object):
     """Out-of-core pandas.DataFrame-like object.  The index is in-core, but the data
     are stored in files on disk.
-    TODO: not sure if this should derive from DataFrame or not.
+    A disk instance of this class is generated via `convert_fasttext_2_oocframe` and
+    then it can be searched using `filter_word_vectors`.
     """
     def __init__(self, path):
         self._path = path
@@ -18,8 +19,7 @@ class OOCFrame(object):
         # if the path already exists then we'll assume the data has already
         # been (fully) written to disk
         if os.path.exists(self._path):
-            fpaths = [y for x in os.walk(self._path) for y in glob(os.path.join(x[0], '*.npy'))]
-            self._index = [self._filepath2label(f) for f in fpaths]
+            self._index = [self._filepath2label(f) for f in self._file_generator()]
             self.disable_insert()
         else:
             # these members support the `combine_weights` method
@@ -32,7 +32,7 @@ class OOCFrame(object):
     # don't use [^\w#] because it doesn't catch e.g. u with umlaut and Greeks
     NON_WORD_CHAR_RE = re.compile(r'[^A-Za-z0-9_#]')
 
-    def _label2path(self, label):
+    def _label2pathroot(self, label):
 
         # remove last item after split and replace it with its first few chars
         # (but then add it back) to reduce the number of files in each directory,
@@ -67,7 +67,7 @@ class OOCFrame(object):
         if self._fileroots2ids is None:
             raise ValueError('Insert has been disabled for this OOCFrame; if the intent is to overwrite it, then delete its directory first')
         self._index.append(label)
-        fpathroot = self._label2path(label)
+        fpathroot = self._label2pathroot(label)
         fname = '{}.npy'.format(fpathroot)
 
         # insert a differentiating id into the filename if not unique
@@ -123,24 +123,87 @@ class OOCFrame(object):
         # construct an Index, just like a normal DataFrame
         self._index = pd.Index(self._index)
 
+    def _file_generator(self):
+        for x in os.walk(self._path):
+            for y in iglob(os.path.join(x[0], '*.npy')):
+                yield y
+
+    @property
+    def shape(self):
+        d0 = len(self.index)  # e.g. 418,081 for English (v. 17.04)
+        d1 = len(np.load(self._file_generator().__next__()))
+        return (d0, d1)
+
+    @property
+    def iloc(self):
+        """Not planning on implementing slicing, but VectorSpaceWrapper.similar_terms
+        uses something called small_frame (a 100D smaller version of the full DataFrame),
+        so this function needs to do something, even though `similar_terms` isn't used.
+        """
+        owner = self
+
+        class Ilocer(object):
+            def __getitem__(self, *args):
+                class Copier(object):
+                    def copy(self):
+                        # TODO: need to change VectorSpaceWrapper.small_k (inspect?)
+                        return owner
+                return Copier()
+
+        return Ilocer()
+
+    @property
+    def loc(self):
+        """Not implementing full functionality of DataFrame.loc either:
+            http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html
+        Single label lookup is sufficient for VectorSpaceWrapper.
+        """
+        owner = self
+
+        class Locer(object):
+            def __getitem__(self, label):
+                fpathroot = owner._label2pathroot(label)
+                fname = '{}.npy'.format(fpathroot)
+                class Valueser(object):
+                    @property
+                    def values(self):
+                        return np.load(fname)
+                return Valueser()
+
+        return Locer()
+
+    @property
+    def columns(self):
+        return range(self.shape[1])
+
     @property
     def index(self):
         return self._index
 
+    def sort_index(self):
+        """Sort the Index, but since the data is all on disk, it doesn't need to
+        be sorted.
+        """
+        lst = list(self._index)
+        lst.sort()  # "TypeError: cannot sort an Index object in-place"
+        self._index = pd.Index(lst)
+        assert(self._index.is_monotonic_increasing)
+        return self
+
     def l1_normalize_columns(self):
         col_norms = None
         for label in self.index:
-            fname = '{}.npy'.format(self._label2path(label))
+            fname = '{}.npy'.format(self._label2pathroot(label))
             if col_norms is None: col_norms  = np.load(fname)
             else:                 col_norms += np.load(fname)
         for label in self.index:
-            fname = '{}.npy'.format(self._label2path(label))
+            fname = '{}.npy'.format(self._label2pathroot(label))
             normalized = np.load(fname) / col_norms
             np.save(fname, normalized, allow_pickle=False)  # overwrite
 
     def l2_normalize_rows(self):
         for label in self.index:
-            fname = '{}.npy'.format(self._label2path(label))
+            fname = '{}.npy'.format(self._label2pathroot(label))
             data = np.load(fname)
             row_norm = np.sqrt(np.sum(np.power(data, 2)))
             normalized = data / row_norm

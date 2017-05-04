@@ -30,7 +30,7 @@ def cli():
 
 
 @cli.command(name='filter_word_vectors')
-@click.argument('dense_hdf_filename_or_oocframe_path', type=click.Path(readable=True, dir_okay=False))
+@click.argument('dense_hdf_filename_or_oocframe_path', type=click.Path(readable=True, dir_okay=True))
 @click.option('--vocab_filename', type=click.Path(readable=True, dir_okay=False))
 @click.option('--vocab_str', '-v', help='Comma-delimited string alternative to --vocab_filename')
 @click.option('--use_db', '-db', default=False, help='Use the ConceptNet knowledge graph database for OOV')
