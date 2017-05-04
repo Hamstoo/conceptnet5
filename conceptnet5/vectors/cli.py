@@ -1,4 +1,6 @@
+import os
 import click
+import logging
 from .formats import (
     convert_glove, convert_word2vec, convert_fasttext, convert_polyglot, convert_fasttext_2_oocframe,
     load_hdf, save_hdf, export_text
@@ -12,9 +14,14 @@ from .evaluation.compare import (
 from .miniaturize import miniaturize
 from .debias import de_bias_frame
 from .query import VectorSpaceWrapper
+from .oocframe import OOCFrame
 
 
 ANALOGY_FILENAME = 'data/raw/analogy/SAT-package-V3.txt'
+
+FORMAT = '%(asctime)-15s : %(levelname)s : %(message)s' # - %(name)s %(clientip)s %(user)-8s
+LEVEL = logging.DEBUG
+logging.basicConfig(format=FORMAT, level=LEVEL)
 
 
 @click.group()
@@ -23,14 +30,20 @@ def cli():
 
 
 @cli.command(name='filter_word_vectors')
-@click.argument('dense_hdf_filename', type=click.Path(readable=True, dir_okay=False))
+@click.argument('dense_hdf_filename_or_oocframe_path', type=click.Path(readable=True, dir_okay=False))
 @click.option('--vocab_filename', type=click.Path(readable=True, dir_okay=False))
 @click.option('--vocab_str', '-v', help='Comma-delimited string alternative to --vocab_filename')
 @click.option('--use_db', '-db', default=False, help='Use the ConceptNet knowledge graph database for OOV')
-def filter_word_vectors(dense_hdf_filename, vocab_filename='', vocab_str='', use_db=False):
+def filter_word_vectors(dense_hdf_filename_or_oocframe_path, vocab_filename='', vocab_str='', use_db=False):
     """Lookup the word vectors for the set of words in the given vocabulary.
     """
-    vsw = VectorSpaceWrapper(vector_filename=dense_hdf_filename, use_db=use_db)
+    if os.path.isfile(dense_hdf_filename_or_oocframe_path):
+        dense_hdf_filename = dense_hdf_filename_or_oocframe_path
+        vsw = VectorSpaceWrapper(vector_filename=dense_hdf_filename, use_db=use_db)
+    else:
+        oocframe_path = dense_hdf_filename_or_oocframe_path
+        oocframe = OOCFrame(oocframe_path)
+        vsw = VectorSpaceWrapper(frame=oocframe, use_db=use_db)
 
     if vocab_filename:
         iterable = open(vocab_filename)
@@ -97,7 +110,9 @@ def run_convert_fasttext(fasttext_filename, output_filename, nrows=500000, langu
 @click.option('--nrows', '-n', default=500000)
 @click.option('--language', '-l', default=None)
 def run_convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows=500000, language=None):
+    logging.debug('convert_fasttext_2_oocframe({}, {}, {}, {})'.format(fasttext_filename, output_path, nrows, language))
     convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=language)
+    logging.debug('done')
 
 
 @cli.command(name='convert_word2vec')

@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
+import logging
 import gzip
 import struct
 import pickle
 from .transforms import l1_normalize_columns, l2_normalize_rows, standardize_row_labels
 from .oocframe import OOCFrame
+from conceptnet5.uri import uri_prefix
+from conceptnet5.vectors import standardized_uri
 
 
 def load_hdf(filename):
@@ -101,7 +104,11 @@ def convert_fasttext(fasttext_filename, output_filename, nrows, language):
 
 def convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=None):
     """
-    Convert FastText data from a gzipped text file to an HDF5 dataframe.
+    Convert FastText data from a gzipped text file to an OOCFrame which is basically
+    a directory on disk containing separate files for each label so that the entire
+    data structure doesn't have to be held in memory all at once.  It's not necessary
+    to have the entire data structure in memory because all that's really needed to
+    query it is its index of terms.
     """
     if language is None or len(language) != 2:
         raise ValueError('Unsupported language: {}'.format(language))
@@ -119,15 +126,24 @@ def convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=
             items = line.rstrip().split(' ')
             label = items[0]
             if label.startswith(prefix):
+
+                new_label = uri_prefix(standardized_uri(language, label))
+                if new_label != label:
+                    print('{} changed to {}'.format(label, new_label))
+                    label = new_label
+
                 values = [float(x) for x in items[1:]]
                 oocframe.insert(label, values, weight=1.0 / (i + 1))
                 i += 1
 
+    logging.debug('oocframe.combine_weights()')
     oocframe.combine_weights()
 
     # TODO: implement support for the real DataFrame interface
     # TODO: i.e. oocframe = l2_normalize_rows(l1_normalize_columns(oocframe))
+    logging.debug('oocframe.l1_normalize_columns()')
     oocframe.l1_normalize_columns()
+    logging.debug('oocframe.l2_normalize_rows()')
     oocframe.l2_normalize_rows()
 
 
