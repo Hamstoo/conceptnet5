@@ -36,3 +36,4 @@ testdata/external
 testdata/vectors
 testdata/psql
 testdata/stats
+venv-cn5
