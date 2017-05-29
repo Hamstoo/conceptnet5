@@ -5,7 +5,7 @@ from setuptools.command.develop import develop
 import sys
 
 packages = find_packages()
-version_str = '5.5.4'
+version_str = '5.5.5'
 
 if sys.version_info.major < 3:
     print("The ConceptNet 5 code can only run in Python 3.")
@@ -24,7 +24,7 @@ setup(
     install_requires=[
         'snakemake', 'click', 'requests', 'ftfy', 'numpy', 'scipy',
         'msgpack-python', 'langcodes >= 1.3', 'wordfreq >= 1.5',
-        'xmltodict', 'ordered_set', 'pg8000'
+        'xmltodict == 0.10.2', 'ordered_set', 'pg8000'
     ],
     license = 'Apache License 2.0',
     entry_points = {
@@ -36,6 +36,6 @@ setup(
         ]
     },
     extras_require={
-        'vectors': ['numpy', 'scipy', 'statsmodels', 'tables', 'pandas', 'scikit-learn', 'mecab-python3', 'jieba', 'marisa_trie']
+        'vectors': ['numpy', 'scipy', 'statsmodels', 'tables', 'pandas', 'scikit-learn', 'mecab-python3', 'jieba', 'marisa_trie', 'matplotlib >= 2']
     },
 )
