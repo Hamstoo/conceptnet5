@@ -7,14 +7,17 @@ which is allowed. We just use .nq because it's a more modern format that isn't
 limited to ASCII.)
 """
 
-from conceptnet5.uri import Licenses
-from conceptnet5.nodes import standardized_concept_uri
+from collections import defaultdict
+
+from wordfreq import simple_tokenize
+
 from conceptnet5.edges import make_edge
 from conceptnet5.formats.msgpack_stream import MsgpackStreamWriter
 from conceptnet5.formats.semantic_web import resource_name, parse_nquads
-from conceptnet5.language.token_utils import un_camel_case, simple_tokenize
+from conceptnet5.language.token_utils import un_camel_case
+from conceptnet5.nodes import standardized_concept_uri
 from conceptnet5.readers.conceptnet4 import filter_stopwords
-from collections import defaultdict
+from conceptnet5.uri import Licenses
 
 SOURCE = {'contributor': '/s/resource/opencyc/2012'}
 RDF_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label'
@@ -144,15 +147,3 @@ def cyc_to_conceptnet_uri(labels, unlabels, uri):
         if simple_tokenize(disambig) != simple_tokenize(label):
             return standardized_concept_uri('en', label, 'n', 'opencyc', disambig)
     return standardized_concept_uri('en', label, 'n')
-
-
-def main():
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('input', help="An N-triples or N-quads file of input")
-    parser.add_argument('output', help='msgpack file to output to')
-    args = parser.parse_args()
-    run_opencyc(args.input, args.output)
-
-if __name__ == '__main__':
-    main()

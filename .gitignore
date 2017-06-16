@@ -37,3 +37,6 @@ testdata/vectors
 testdata/psql
 testdata/stats
 venv-cn5
+.DS_Store
+*/.DS_Store
+.DS_Store?

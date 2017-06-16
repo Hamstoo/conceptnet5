@@ -80,10 +80,6 @@ if TESTMODE:
     INPUT_EMBEDDINGS = ['glove12-840B']
     SOURCE_EMBEDDING_ROWS = 5000
 
-
-
-# Test mode overrides some of these settings.
-if TESTMODE:
     DATA = "testdata"
     USE_PRECOMPUTED = True
     HASH_WIDTH = 12
@@ -122,11 +118,12 @@ rule webdata:
         DATA + "/psql/node_prefixes.csv.gz",
         DATA + "/psql/sources.csv.gz",
         DATA + "/psql/relations.csv.gz",
+        DATA + "/psql/done",
         DATA + "/vectors/mini.h5",
 
 rule clean:
     shell:
-        "for subdir in assertions collated db edges psql tmp vectors stats; "
+        "for subdir in assertions assoc collated db edges psql tmp vectors stats; "
         "do echo Removing %(data)s/$subdir; "
         "rm -rf %(data)s/$subdir; done" % {'data': DATA}
 
@@ -135,7 +132,8 @@ rule test:
         DATA + "/assertions/assertions.csv",
         DATA + "/psql/done",
         DATA + "/assoc/reduced.csv",
-        DATA + "/vectors/plain/numberbatch-en.txt.gz"
+        DATA + "/vectors/plain/numberbatch-en.txt.gz",
+        DATA + "/stats/languages.txt"
 
 
 # Downloaders
@@ -214,7 +212,7 @@ rule read_conceptnet4:
     output:
         DATA + "/edges/conceptnet4/conceptnet4_flat_{num}.msgpack"
     shell:
-        "python3 -m conceptnet5.readers.conceptnet4 {input} {output}"
+        "cn5-read conceptnet4 {input} {output}"
 
 rule read_dbpedia:
     input:
@@ -225,7 +223,7 @@ rule read_dbpedia:
     output:
         DATA + "/edges/dbpedia/dbpedia_en.msgpack",
     shell:
-        "python3 -m conceptnet5.readers.dbpedia %(data)s/raw/dbpedia "
+        "cn5-read dbpedia %(data)s/raw/dbpedia "
         "{output} "
         "%(data)s/stats/core_concepts.txt " % {'data': DATA}
 
@@ -235,7 +233,7 @@ rule read_jmdict:
     output:
         DATA + "/edges/jmdict/jmdict.msgpack"
     shell:
-        "python3 -m conceptnet5.readers.jmdict {input} {output}"
+        "cn5-read jmdict {input} {output}"
 
 rule read_nadya:
     input:
@@ -243,7 +241,7 @@ rule read_nadya:
     output:
         DATA + "/edges/nadya/nadya.msgpack"
     shell:
-        "python3 -m conceptnet5.readers.nadya {input} {output}"
+        "cn5-read nadya {input} {output}"
 
 rule read_ptt_petgame:
     input:
@@ -251,7 +249,7 @@ rule read_ptt_petgame:
     output:
         DATA + "/edges/ptt_petgame/{part}.msgpack"
     shell:
-        "python3 -m conceptnet5.readers.ptt_petgame {input} {output}"
+        "cn5-read ptt_petgame {input} {output}"
 
 rule read_opencyc:
     input:
@@ -259,7 +257,7 @@ rule read_opencyc:
     output:
         DATA + "/edges/opencyc/opencyc.msgpack"
     shell:
-        "python3 -m conceptnet5.readers.opencyc {input} {output}"
+        "cn5-read opencyc {input} {output}"
 
 rule read_verbosity:
     input:
@@ -267,7 +265,7 @@ rule read_verbosity:
     output:
         DATA + "/edges/verbosity/verbosity.msgpack"
     shell:
-        "python3 -m conceptnet5.readers.verbosity {input} {output}"
+        "cn5-read verbosity {input} {output}"
 
 rule prescan_wiktionary:
     input:
@@ -298,7 +296,7 @@ rule read_wordnet:
     output:
         DATA + "/edges/wordnet/wordnet.msgpack",
     shell:
-        "python3 -m conceptnet5.readers.wordnet {input} {output}"
+        "cn5-read wordnet {input} {output}"
 
 
 # Converting msgpack to csv
@@ -334,7 +332,7 @@ rule combine_assertions:
     output:
         DATA + "/assertions/assertions.msgpack"
     shell:
-        "python3 -m conceptnet5.builders.combine_assertions -o {output} {input}"
+        "python3 -m conceptnet5.builders.combine_assertions {input} {output}"
 
 
 # Putting data in PostgreSQL
@@ -494,7 +492,7 @@ rule convert_word2vec:
     output:
         DATA + "/vectors/w2v-google-news.h5"
     resources:
-        ram=16
+        ram=24
     shell:
         "CONCEPTNET_DATA=data cn5-vectors convert_word2vec -n {SOURCE_EMBEDDING_ROWS} {input} {output}"
 
@@ -504,7 +502,7 @@ rule convert_glove:
     output:
         DATA + "/vectors/glove12-840B.h5"
     resources:
-        ram=16
+        ram=24
     shell:
         "CONCEPTNET_DATA=data cn5-vectors convert_glove -n {SOURCE_EMBEDDING_ROWS} {input} {output}"
 
@@ -514,7 +512,7 @@ rule convert_fasttext:
     output:
         DATA + "/vectors/fasttext-wiki-{lang}.h5"
     resources:
-        ram=16
+        ram=24
     shell:
         "CONCEPTNET_DATA=data cn5-vectors convert_fasttext -n {SOURCE_EMBEDDING_ROWS} -l {wildcards.lang} {input} {output}"
 
@@ -524,9 +522,9 @@ rule convert_lexvec:
     output:
         DATA + "/vectors/lexvec-commoncrawl.h5"
     resources:
-        ram=16
+        ram=24
     shell:
-        "CONCEPTNET_DATA=data cn5-vectors convert_fasttext -n 2000000 {input} {output}"
+        "CONCEPTNET_DATA=data cn5-vectors convert_fasttext -n {SOURCE_EMBEDDING_ROWS} {input} {output}"
 
 rule convert_opensubtitles_ft:
     input:
@@ -534,9 +532,9 @@ rule convert_opensubtitles_ft:
     output:
         DATA + "/vectors/fasttext-opensubtitles.h5"
     resources:
-        ram=16
+        ram=24
     shell:
-        "CONCEPTNET_DATA=data cn5-vectors convert_fasttext -n 2000000 {input} {output}"
+        "CONCEPTNET_DATA=data cn5-vectors convert_fasttext -n {SOURCE_EMBEDDING_ROWS} {input} {output}"
 
 rule convert_polyglot:
     input:
@@ -571,7 +569,7 @@ rule join_retrofit:
     output:
         DATA + "/vectors/{name}-retrofit.h5"
     resources:
-        ram=16
+        ram=24
     shell:
         "cn5-vectors join_retrofit -s {RETROFIT_SHARDS} {output}"
 
@@ -582,7 +580,7 @@ rule merge_intersect:
         DATA + "/vectors/numberbatch-biased.h5",
         DATA + "/vectors/intersection-projection.h5"
     resources:
-        ram=16
+        ram=24
     shell:
         "cn5-vectors intersect {input} {output}"
 

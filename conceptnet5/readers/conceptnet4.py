@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 This script reads the ConceptNet 4 data out of the flat files in raw_data,
 and builds ConceptNet 5 edges from the data.
 """
+from wordfreq import simple_tokenize
 
 from conceptnet5.formats.json_stream import read_json_stream
 from conceptnet5.formats.msgpack_stream import MsgpackStreamWriter
@@ -11,7 +12,6 @@ from conceptnet5.nodes import (
 )
 from conceptnet5.edges import make_edge
 from conceptnet5.language.english import english_filter
-from conceptnet5.language.token_utils import simple_tokenize
 from conceptnet5.uri import join_uri, Licenses
 
 # bedume is a prolific OMCS contributor who seemed to go off the rails at some
@@ -143,6 +143,10 @@ def can_skip(parts_dict):
     if 'spatial concept' in parts_dict["startText"]:
         return True
     if not parts_dict["startText"] or not parts_dict["endText"]:
+        return True
+    if len(parts_dict["startText"]) == 0 or len(parts_dict["endText"]) == 0:
+        return True
+    if lang == 'pt' and (len(parts_dict["startText"]) <= 2 or len(parts_dict["endText"]) <= 2):
         return True
     if 'rubycommons' in parts_dict["activity"]:
         return True
@@ -379,15 +383,3 @@ def handle_file(input_filename, output_file):
     builder = CN4Builder()
     builder.transform_file(input_filename, output_file)
 
-
-# TODO: convert this to click or just remove it if we've already done that
-def main():
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('input', help='JSON-stream file of input')
-    parser.add_argument('output', help='msgpack file to output to')
-    args = parser.parse_args()
-    handle_file(args.input, args.output)
-
-if __name__ == '__main__':
-    main()
