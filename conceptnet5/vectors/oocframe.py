@@ -89,7 +89,7 @@ class OOCFrame(object):
         identical terms into a single, weighted average vector.
         """
         if not self._filenames2weights:
-            raise ValueError('`_filenames2weights` is empty; `combine_weights` should only be called once after inserting all data')
+            raise ValueError('`_filenames2weights` is empty; `combine_weights` should only be called once after inserting all data or maybe the `--no_prefix_required` flag needs to be used')
 
         # for each file root with multiple files
         for fpathroot, maxid in self._fileroots2ids.items():

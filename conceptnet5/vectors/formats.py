@@ -102,7 +102,7 @@ def convert_fasttext(fasttext_filename, output_filename, nrows, language):
     save_hdf(ft_normal, output_filename)
 
 
-def convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=None):
+def convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=None, prefix_required=True):
     """
     Convert FastText data from a gzipped text file to an OOCFrame which is basically
     a directory on disk containing separate files for each label so that the entire
@@ -125,6 +125,15 @@ def convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=
                 break
             items = line.rstrip().split(' ')
             label = items[0]
+
+            # setting `include_punctuation=True` in `tokens.simple_tokenize` doesn't properly handle '#' chars
+            # the same was as if the prefixes are already present (it ends up putting an underscore between them
+            # and any following chars, e.g. '###mm_mortar' gets converted to '###_mm_mortar') and it would take
+            # a lot to fix the regexes that function uses so just punch a prefix here (even though that's part
+            # of the purpose of `standardized_uri`) so that we don't have to deal with it
+            if not prefix_required and not label.startswith(prefix):
+                label = prefix + label
+
             if label.startswith(prefix):
 
                 new_label = uri_prefix(standardized_uri(language, label))

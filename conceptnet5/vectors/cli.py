@@ -109,9 +109,10 @@ def run_convert_fasttext(fasttext_filename, output_filename, nrows=500000, langu
 @click.argument('output_path', type=click.Path(writable=True, dir_okay=True))
 @click.option('--nrows', '-n', default=500000)
 @click.option('--language', '-l', default=None)
-def run_convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows=500000, language=None):
+@click.option('--prefix_required/--no_prefix_required', default=True)
+def run_convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows=500000, language=None, prefix_required=True):
     logging.debug('convert_fasttext_2_oocframe({}, {}, {}, {})'.format(fasttext_filename, output_path, nrows, language))
-    convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=language)
+    convert_fasttext_2_oocframe(fasttext_filename, output_path, nrows, language=language, prefix_required=prefix_required)
     logging.debug('done')
 
 
